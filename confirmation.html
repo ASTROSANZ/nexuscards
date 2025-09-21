@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ExoCards — Confirmação de Pagamento</title>
+<style>
+  :root{
+    --bg:#0f1620;
+    --card:#10151b;
+    --muted:#9aa6b2;
+    --accent:#6f42c1;
+    --accent-2:#9b59b6;
+    --success:#2ecc71;
+    --danger:#e74c3c;
+    --glass: rgba(255,255,255,0.03);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;font-family:Inter, "Helvetica Neue", Arial, sans-serif}
+  body{
+    margin:0;
+    background:linear-gradient(180deg,#071019 0%,#0f1620 100%);
+    color:#e8eef2;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:28px;
+  }
+
+  .wrap{
+    width:980px;
+    max-width:100%;
+    display:grid;
+    grid-template-columns: 1fr 420px;
+    gap:28px;
+  }
+
+  .checkout{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:var(--radius);
+    padding:26px;
+    box-shadow: 0 8px 30px rgba(2,6,10,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  header.appbar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:18px;
+  }
+  .brand {
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .logo {
+    width:48px;height:48px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:white;font-size:18px;box-shadow:0 6px 18px rgba(107,43,162,0.25);
+  }
+  h1{font-size:18px;margin:0}
+  p.lead{color:var(--muted);margin:0;font-size:13px}
+
+  /* Right column: payment */
+  .payment-card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:var(--radius);
+    padding:20px;
+    border:1px solid rgba(255,255,255,0.03);
+    display:flex;flex-direction:column;gap:12px;
+    height:fit-content;
+  }
+
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .small{font-size:13px;color:var(--muted)}
+  .total{font-size:20px;font-weight:700}
+
+  .pix-key{
+    background:rgba(255,255,255,0.02);
+    padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);
+    display:flex;gap:8px;align-items:center;justify-content:space-between;
+  }
+
+  button.copy-btn{
+    background:linear-gradient(90deg,var(--accent),#7a3bc2);
+    border:none;color:white;padding:10px 14px;border-radius:10px;font-weight:700;
+    cursor:pointer;box-shadow:0 8px 20px rgba(107,43,162,0.16);
+  }
+  button.copy-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+  .timer{
+    font-weight:800;font-size:18px;color:#ffd166;
+  }
+  .expired{color:var(--danger);}
+
+  .meta{font-size:13px;color:var(--muted)}
+
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:28px;background:#0b1116;padding:12px 18px;border-radius:10px;
+    border:1px solid rgba(255,255,255,0.04);box-shadow:0 6px 20px rgba(2,6,10,0.6);
+    opacity:0;pointer-events:none;transition:200ms ease;
+  }
+  .toast.show{opacity:1;pointer-events:auto}
+
+  .status{
+    padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);font-size:14px;color:var(--muted);
+  }
+
+  footer.smallprint{margin-top:8px;font-size:12px;color:var(--muted);text-align:center}
+  @media (max-width:880px){
+    .wrap{grid-template-columns: 1fr; padding:12px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="checkout">
+      <header class="appbar">
+        <div class="brand">
+          <div class="logo">EX</div>
+          <div>
+            <h1>ExoCards — Checkout</h1>
+            <p class="lead">Confirme o pagamento via Pix para liberar o pedido</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="status" id="status">
+        Aguarde: abra seu app bancário e realize o Pix. Use a chave abaixo e copie com o botão.
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px" class="meta">
+          <strong>Vendedor:</strong> ExoCards<br>
+          <strong>Pedido nº</strong> <span id="pedido">#000000</span>
+        </div>
+        <div style="min-width:180px;text-align:right" class="meta">
+          <div>Subtotal</div>
+          <div style="font-weight:700" id="subtotal">R$ 0,00</div>
+        </div>
+      </div>
+
+      <footer class="smallprint">
+      </footer>
+    </section>
+
+    <aside class="payment-card" aria-label="Painel de pagamento">
+      <div class="row">
+        <div>
+          <div style="font-size:13px;color:var(--muted)">Pagar com</div>
+          <div style="font-weight:800">PIX</div>
+        </div>
+        <div style="text-align:right">
+          <div class="small">Expira em</div>
+          <div class="timer" id="timer">15:00</div>
+        </div>
+      </div>
+
+      <div class="pix-key" id="pixKeyBox">
+        <div style="flex:1;word-break:break-all">
+          <div style="font-size:12px;color:var(--muted)">Chave Pix</div>
+          <div id="pix-key" style="font-weight:700;font-size:13px">b899fecf-aeb0-48fa-93d4-35bbcb148224</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-left:8px">
+          <button class="copy-btn" id="copyBtn" title="Copiar chave Pix">Copiar</button>
+          <button class="copy-btn" id="copyValueBtn" title="Copiar valor">Copiar valor</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div>
+          <div class="small">Total</div>
+          <div class="total" id="total">R$ 0,00</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="small">Método</div>
+          <div>Pix via app</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast">Copiado!</div>
+
+<script>
+(function(){
+  const url = new URL(location.href);
+  let valueParam = url.searchParams.get('value');
+  const timerParam = parseInt(url.searchParams.get('timer')||'',10);
+
+  const stored = localStorage.getItem('valorCartao');
+  function parseMoney(v){
+    if(!v) return null;
+    v = String(v).trim().replace(/\s/g,'').replace(',','.');
+    const n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  let price = parseMoney(valueParam) ?? parseMoney(stored) ?? 0;
+  if(isNaN(price)){
+    price = parseMoney((valueParam||'').replace(/[^\d,\.]/g,'')) ?? 0;
+  }
+
+  function fmtBRL(n){ return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+
+  document.getElementById('subtotal').textContent = fmtBRL(price);
+  document.getElementById('total').textContent = fmtBRL(price);
+
+  document.getElementById('pedido').textContent = '#'+(Math.floor(100000 + Math.random()*899999));
+  localStorage.setItem('valorCartao', price.toString());
+
+  const timerEl = document.getElementById('timer');
+  let remaining = Number.isFinite(timerParam) && timerParam > 0 ? timerParam : 15*60;
+  let expired = false;
+
+  function formatMMSS(s){
+    const mm = Math.floor(s/60).toString().padStart(2,'0');
+    const ss = Math.floor(s%60).toString().padStart(2,'0');
+    return mm+':'+ss;
+  }
+
+  timerEl.textContent = formatMMSS(remaining);
+  const interval = setInterval(()=>{
+    if(remaining <= 0){
+      clearInterval(interval);
+      timerEl.textContent = '00:00';
+      timerEl.classList.add('expired');
+      expired = true;
+      onExpire();
+      return;
+    }
+    remaining--;
+    timerEl.textContent = formatMMSS(remaining);
+    if(remaining < 60) timerEl.style.color = '#ffb86b';
+  }, 1000);
+
+  function onExpire(){
+    document.getElementById('status').textContent = 'Tempo expirado — o pedido foi cancelado.';
+    document.getElementById('copyBtn').disabled = true;
+    document.getElementById('copyValueBtn').disabled = true;
+  }
+
+  const pixKeyEl = document.getElementById('pix-key');
+  const pixParam = url.searchParams.get('pix');
+  if(pixParam) pixKeyEl.textContent = pixParam;
+
+  const toast = document.getElementById('toast');
+  function showToast(msg='Copiado!'){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 2000);
+  }
+
+  async function copyToClipboard(text){
+    try{
+      if(navigator.clipboard) await navigator.clipboard.writeText(text);
+      else {
+        const ta=document.createElement('textarea');
+        ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+      }
+      return true;
+    }catch{ return false; }
+  }
+
+  document.getElementById('copyBtn').addEventListener('click', async ()=>{
+    if(expired) return;
+    const ok = await copyToClipboard(pixKeyEl.textContent.trim());
+    showToast(ok ? 'Chave Pix copiada!' : 'Falha ao copiar');
+  });
+
+  document.getElementById('copyValueBtn').addEventListener('click', async ()=>{
+    if(expired) return;
+    const val = price.toFixed(2).replace('.',',');
+    const ok = await copyToClipboard(val);
+    showToast(ok ? 'Valor copiado: R$ '+val : 'Falha ao copiar');
+  });
+})();
+</script>
+</body>
+</html>
